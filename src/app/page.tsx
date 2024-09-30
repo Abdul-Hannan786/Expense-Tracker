@@ -5,6 +5,8 @@ import { db, saveExpense } from "@/Firebase/firebasefirestore";
 import { onAuthStateChanged, Unsubscribe } from "firebase/auth";
 import {
   collection,
+  deleteDoc,
+  doc,
   DocumentData,
   onSnapshot,
   query,
@@ -28,7 +30,7 @@ export default function Home() {
     if (title.trim() !== "" && parsedAmount > 0) {
       saveExpense({
         title,
-        amount,
+        amount: parsedAmount,
         category,
         note,
         date,
@@ -41,6 +43,18 @@ export default function Home() {
     setAmount("");
     setNote("");
     setCategory("Food");
+  };
+
+  const deleteExpense = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "expense", id));
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const editExpense = (index: number) => {
+    console.log(allExpenses[index]);
   };
 
   useEffect(() => {
@@ -67,22 +81,23 @@ export default function Home() {
     const currentUserUID = auth.currentUser?.uid;
     const condition = where("userID", "==", currentUserUID);
     const q = query(collectionRef, condition);
-    const allExpensesClone = [...allExpenses];
+    let allExpensesClone = [...allExpenses];
 
     readExpensesRealTime = onSnapshot(q, (querySnapshot) => {
       querySnapshot.docChanges().forEach((change) => {
+        const expense = change.doc.data();
+        expense.id = change.doc.id;
         if (change.type === "added") {
-          const expense = change.doc.data();
-          expense.id = change.doc.id;
           allExpensesClone.push(expense);
-          setAllExpenses([...allExpensesClone]);
         }
         if (change.type === "modified") {
-          console.log("data modified");
+          console.log("Expense Edit Successfully");
         }
         if (change.type === "removed") {
+          allExpensesClone = allExpensesClone.filter((item) => item.id !== change.doc.id);
         }
       });
+      setAllExpenses([...allExpensesClone]);
     });
   };
 
@@ -146,12 +161,20 @@ export default function Home() {
       <br />
 
       {allExpenses.length > 0 ? (
-        allExpenses.map(({ title, amount, category, note }, index) => (
-          <div key={title + index}>
-            <h1>Title : {title}</h1>
-            <h1>Amount: {amount}</h1>
-            <h2>Category: {category}</h2>
+        allExpenses.map(({ id, title, amount, category, note }, index) => (
+          <div key={title + index} style={{ fontFamily: "sans-serif" }}>
+            <h2>Title : {title}</h2>
+            <h2>Amount: {amount}</h2>
+            <h3>Category: {category}</h3>
             {note !== "" ? <p>Note: {note}</p> : <></>}
+            <button onClick={() => editExpense(index)}>Edit</button>
+            <button
+              onClick={() => {
+                deleteExpense(id);
+              }}
+            >
+              Delete
+            </button>
             <hr />
           </div>
         ))
