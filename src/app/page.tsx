@@ -10,6 +10,7 @@ import {
   DocumentData,
   onSnapshot,
   query,
+  updateDoc,
   where,
 } from "firebase/firestore";
 
@@ -24,6 +25,8 @@ export default function Home() {
   const [note, setNote] = useState("");
   const [allExpenses, setAllExpenses] = useState<DocumentData[]>([]);
   const date = new Date().toDateString();
+  const [isEditing, setIsEditing] = useState(false);
+  const [docId, setDocId] = useState<null | string | string>(null)
 
   const addExpense = () => {
     const parsedAmount = Number(amount);
@@ -54,7 +57,32 @@ export default function Home() {
   };
 
   const editExpense = (index: number) => {
-    console.log(allExpenses[index]);
+    const { title, amount, category, note, id } = allExpenses[index];
+    setTitle(title);
+    setAmount(amount);
+    setCategory(category);
+    setNote(note);
+    setIsEditing(true);
+    setDocId(id)
+  };
+
+  const editHandler = async () => {
+    const parsedAmount = Number(amount)
+    if(docId){
+      const docRef = doc(db, "expense", docId)
+      await updateDoc(docRef, {
+        title,
+        amount: parsedAmount,
+        category,
+        date,
+        note
+      })
+    }
+    setIsEditing(false);
+    setTitle("");
+    setAmount("");
+    setNote("");
+    setCategory("Food");
   };
 
   useEffect(() => {
@@ -92,9 +120,15 @@ export default function Home() {
         }
         if (change.type === "modified") {
           console.log("Expense Edit Successfully");
+          const index = allExpensesClone.findIndex(({id}) => id === change.doc.id)
+          if(index !== -1){
+            allExpensesClone[index] = expense
+          }
         }
         if (change.type === "removed") {
-          allExpensesClone = allExpensesClone.filter((item) => item.id !== change.doc.id);
+          allExpensesClone = allExpensesClone.filter(
+            (item) => item.id !== change.doc.id
+          );
         }
       });
       setAllExpenses([...allExpensesClone]);
@@ -156,7 +190,12 @@ export default function Home() {
       ></textarea>
       <br />
       <br />
-      <button onClick={addExpense}>Create Expense</button>
+      {isEditing ? (
+        <button onClick={editHandler}>Save Expense</button>
+      ) : (
+        <button onClick={addExpense}>Create Expense</button>
+      )}
+
       <br />
       <br />
 
